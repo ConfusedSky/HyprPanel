@@ -115,7 +115,7 @@ export const WorkspaceModule = ({ monitor }: WorkspaceModuleProps): JSX.Element 
                         className={'workspace-button'}
                         onClick={(_, event) => {
                             if (isPrimaryClick(event)) {
-                                hyprlandService.dispatch('workspace', wsId.toString());
+                                hyprlandService.dispatch('focusworkspaceoncurrentmonitor', wsId.toString());
                             }
                         }}
                     >
