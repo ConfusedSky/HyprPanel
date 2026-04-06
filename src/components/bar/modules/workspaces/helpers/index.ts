@@ -24,7 +24,7 @@ const { showWsIcons, showAllActive, numbered_active_indicator: wsActiveIndicator
  * @returns True if the workspace is active on the monitor, false otherwise.
  */
 const isWorkspaceActiveOnMonitor = (monitor: number, i: number): boolean => {
-    return showAllActive.get() && hyprlandService.get_monitor(monitor)?.activeWorkspace?.id === i;
+    return hyprlandService.get_monitor(monitor)?.activeWorkspace?.id === i;
 };
 
 /**
@@ -90,7 +90,7 @@ export const getWsColor = (
         showWsIcons.get() &&
         smartHighlight &&
         wsActiveIndicator.get() === 'highlight' &&
-        (hyprlandService.focusedWorkspace?.id === i || isWorkspaceActiveOnMonitor(monitor, i))
+        isWorkspaceActiveOnMonitor(monitor, i)
     ) {
         const iconColor = monochrome.get() ? background.get() : wsBackground.get();
         const iconBackground = hasColor && isValidGjsColor(iconEntry.color) ? iconEntry.color : active.get();
@@ -197,8 +197,7 @@ export const renderClassnames = (
     monitor: number,
     i: number,
 ): string => {
-    const isWorkspaceActive =
-        hyprlandService.focusedWorkspace?.id === i || isWorkspaceActiveOnMonitor(monitor, i);
+    const isWorkspaceActive = isWorkspaceActiveOnMonitor(monitor, i);
     const isActive = isWorkspaceActive ? 'active' : '';
 
     if (showIcons) {
@@ -259,7 +258,7 @@ export const renderLabel = (
     }
 
     if (showIcons) {
-        if (hyprlandService.focusedWorkspace?.id === i || isWorkspaceActiveOnMonitor(monitor, i)) {
+        if (isWorkspaceActiveOnMonitor(monitor, i)) {
             return activeIndicator;
         }
         if ((hyprlandService.get_workspace(i)?.get_clients().length || 0) > 0) {
