@@ -38,6 +38,8 @@ export class MediaPlayerService {
 
     private _mprisService: AstalMpris.Mpris;
 
+    private _playerWatchers: Map<string, ReturnType<typeof Variable.derive>> = new Map();
+
     private _subscriptions: MediaSubscriptions = {
         position: undefined,
         loop: undefined,
@@ -75,6 +77,10 @@ export class MediaPlayerService {
             for (const player of filteredPlayers) {
                 this._handlePlayerAdded(player);
             }
+        }
+
+        for (const player of filteredPlayers) {
+            this._watchPlayer(player);
         }
 
         this._mprisService.connect('player-closed', (_, closedPlayer) =>
@@ -118,6 +124,8 @@ export class MediaPlayerService {
         if (this.activePlayer.get() === undefined || isPreferred) {
             this.activePlayer.set(addedPlayer);
         }
+
+        this._watchPlayer(addedPlayer);
     }
 
     /**
@@ -129,6 +137,7 @@ export class MediaPlayerService {
      * @param closedPlayer The player that was closed
      */
     private _handlePlayerClosed(closedPlayer: AstalMpris.Player): void {
+        this._unwatchPlayer(closedPlayer);
         const { ignore } = options.menus.media;
         const allPlayers = this._mprisService.get_players();
         const filteredPlayers = filterPlayers(allPlayers, ignore.get());
@@ -140,6 +149,39 @@ export class MediaPlayerService {
         if (closedPlayer.busName === this.activePlayer.get()?.busName) {
             const nextPlayer = filteredPlayers.find((player) => player.busName !== closedPlayer.busName);
             this.activePlayer.set(nextPlayer);
+        }
+    }
+
+    /**
+     * Watches a player's playback status and promotes it to active when it starts playing
+     *
+     * @param player The player to watch
+     */
+    private _watchPlayer(player: AstalMpris.Player): void {
+        if (this._playerWatchers.has(player.busName)) return;
+
+        const watcher = Variable.derive([bind(player, 'playbackStatus')], (status) => {
+            if (
+                status === AstalMpris.PlaybackStatus.PLAYING &&
+                player.busName !== this.activePlayer.get()?.busName
+            ) {
+                this.activePlayer.set(player);
+            }
+        });
+
+        this._playerWatchers.set(player.busName, watcher);
+    }
+
+    /**
+     * Drops the playback watcher for a player that has been closed
+     *
+     * @param player The player to stop watching
+     */
+    private _unwatchPlayer(player: AstalMpris.Player): void {
+        const watcher = this._playerWatchers.get(player.busName);
+        if (watcher) {
+            watcher.drop();
+            this._playerWatchers.delete(player.busName);
         }
     }
 
@@ -516,6 +558,8 @@ export class MediaPlayerService {
      */
     public dispose(): void {
         Object.values(this._subscriptions).forEach((sub) => sub?.drop());
+        this._playerWatchers.forEach((watcher) => watcher.drop());
+        this._playerWatchers.clear();
 
         this.activePlayer.drop();
 
